@@ -21,7 +21,8 @@ app.set("trust proxy", 1); // 🔥 REQUIRED even locally (important)
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://book-cart-eosin.vercel.app"
+    "https://book-cart-eosin.vercel.app",
+    "https://book-store-docker.vercel.app"
   ],
   credentials: true
 }));

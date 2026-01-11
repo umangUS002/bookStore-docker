@@ -1,0 +1,22 @@
+# Node
+node_modules/
+
+# Environment
+.env
+
+# Python virtual environments
+.venv/
+**/.venv/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# ML artifacts
+*.joblib
+
+# Build outputs
+dist/
+build/
+.next/

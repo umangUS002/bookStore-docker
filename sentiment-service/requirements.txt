@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic
+pymongo[srv]
+dnspython
+requests
+python-dotenv
+huggingface-hub

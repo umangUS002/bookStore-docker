@@ -48,7 +48,7 @@ app.use('/api/subscriptions', subscriberRouter);
 
 const PORT = process.env.PORT || 3000;
 
-app.head("/health", (req, res) => {
+app.get("/health", (req, res) => {
   res.send("Health Endpoint");
   res.status(200).end();
 });

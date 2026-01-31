@@ -5,6 +5,8 @@ import Comment from "../models/Comments.js";
 import main from "../configs/gemini.js";
 import Subscriber from "../models/Subscriber.js";
 import { sendNewBookEmail } from "../utils/sendEmail.js";
+import redisClient from "../configs/redis.js";
+import { log } from "console";
 
 export const addBook = async (req, res) => {
     try {
@@ -56,8 +58,25 @@ export const addBook = async (req, res) => {
 
 export const getAllBooks = async (req, res) => {
     try {
+        const CACHE_KEY = "books:all";
+
+        const cachedBooks = await redisClient.get(CACHE_KEY);
+        if(cachedBooks){
+            console.log("Books served from Redis");
+            return res.status(200).json(JSON.parse(cachedBooks));
+        }
+
         const books = await Book.find({ isPublished: true }).sort({ createdAt: -1 })
-        res.json({ success: true, books })
+
+        await redisClient.setEx(
+            CACHE_KEY,
+            300,
+            JSON.stringify(books)
+        );
+
+        console.log("Books served from MongoDB");
+
+        res.json({ success: true, books });
     } catch (error) {
         res.json({ success: false, message: error.message })
     }

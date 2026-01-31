@@ -10,6 +10,7 @@ import recRouter from "./routes/recommendationRoutes.js";
 import clerkWebhooks from "./controllers/webhooks.js";
 import { clerkMiddleware } from '@clerk/express';
 import subscriberRouter from "./routes/subscriberRoutes.js";
+import "./configs/redis.js"
 
 const app = express();
 

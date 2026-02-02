@@ -71,15 +71,20 @@ export const getAllBooks = async (req, res) => {
 
         const books = await Book.find({ isPublished: true }).sort({ createdAt: -1 })
 
+        const response = {
+            success: true,
+            books
+        };
+
         await redisClient.setEx(
             CACHE_KEY,
             300,
-            JSON.stringify(books)
+            JSON.stringify(response)
         );
 
         console.log("Books served from MongoDB");
 
-        res.json({ success: true, books });
+        res.status(200).json(response);
     } catch (error) {
         res.json({ success: false, message: error.message })
     }

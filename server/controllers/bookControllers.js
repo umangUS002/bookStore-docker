@@ -51,6 +51,9 @@ export const addBook = async (req, res) => {
 
         res.json({ success: true, message: "Book added successfully" })
 
+        await redisClient.del("books:all");
+        await redisClient.del("admin:books:all");
+
     } catch (error) {
         res.json({ success: false, message: error.message })
     }
@@ -105,6 +108,9 @@ export const deleteBookById = async (req, res) => {
 
         res.json({ success: true, message: "Book deleted successfully" })
 
+        await redisClient.del("books:all");
+        await redisClient.del("admin:books:all");
+
     } catch (error) {
         res.json({ success: false, message: error.message })
     }
@@ -117,6 +123,10 @@ export const togglePublish = async (req, res) => {
         book.isPublished = !book.isPublished;
         await book.save();
         res.json({ success: true, message: "Book status updated" })
+
+        await redisClient.del("books:all");
+        await redisClient.del("admin:books:all");
+        
     } catch (error) {
         res.json({ success: false, message: error.message })
     }
@@ -135,7 +145,26 @@ export const addComment = async (req, res) => {
 export const getBookComment = async (req, res) => {
     try {
         const { bookId } = req.body;
+
+        // const CACHE_KEY = `comments:book:${bookId}`;
+        // const cachedComments = await redisClient.get(CACHE_KEY);
+        // if (cachedComments) {
+        //     console.log("Comments served from Redis");
+        //     return res.status(200).json({
+        //         success: true,
+        //         comments: JSON.parse(cachedComments)
+        //     });
+        // }
+
         const comments = await Comment.find({ book: bookId, isApproved: true }).sort({ createdAt: -1 });
+        
+        // await redisClient.setEx(
+        //     CACHE_KEY,
+        //     300,
+        //     JSON.stringify(comments)
+        // );
+        // console.log("Comments served from MongoDB");
+
         res.json({ success: true, comments })
     } catch (error) {
         res.json({ success: false, message: error.message })

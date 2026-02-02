@@ -136,6 +136,17 @@ export const AppProvider = ({ children }) => {
   };
 
   useEffect(() => {
+  const savedToken = localStorage.getItem("token"); // or "adminToken"
+
+  if (savedToken) {
+    setToken(savedToken);
+    axios.defaults.headers.common[
+      "Authorization"
+    ] = savedToken;
+  }
+}, []);
+
+  useEffect(() => {
     if (!wishlist?.length) {
       setWishlistBooks([]);
       return;

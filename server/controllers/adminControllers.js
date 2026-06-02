@@ -110,11 +110,16 @@ export const getDashBoard = async(req,res) => {
 export const deleteCommentById = async(req, res) => {
     try {
         const {id} = req.body;
-        await Comment.findByIdAndDelete(id);
-        res.json({success: true, message: "Comment deleted successfully"})
-
+        const deletedComment = await Comment.findByIdAndDelete(id);
+        if (deletedComment?.book) {
+            await recomputeBookRating(deletedComment.book);
+        }
         await redisClient.del("admin:comments:all");
         await redisClient.del("admin:dashboard");
+        await redisClient.del("admin:books:all");
+        await redisClient.del("books:all");
+
+        res.json({success: true, message: "Comment deleted successfully"})
 
     } catch (error) {
         res.json({success: false, message: error.message});
@@ -144,15 +149,20 @@ export const approveCommentById = async (req, res) => {
     await comment.save();
 
     // 🔥 Update rating
-    await recomputeBookRating(comment.book);
-
-    res.json({
-      success: true,
-      message: "Comment approved & rating updated"
-    });
+    const rating = await recomputeBookRating(comment.book);
 
     await redisClient.del("admin:comments:all");
     await redisClient.del("admin:dashboard");
+    await redisClient.del("admin:books:all");
+    await redisClient.del("books:all");
+
+    console.log(`Book ${comment.book} rating updated to ${rating}`);
+
+    res.json({
+      success: true,
+      message: "Comment approved & rating updated",
+      rating
+    });
 
   } catch (error) {
     console.error("approveCommentById:", error);

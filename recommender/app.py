@@ -120,6 +120,8 @@ class BookResponse(BaseModel):
     description: str
     score: float
     image: str
+    recommendationSource: str
+    recommendationStrategy: str
 
 # =======================
 # ROUTES
@@ -173,7 +175,9 @@ def similar_books(book_id: str, k: int = 4):
             "rating": float(row["rating"]) if row["rating"] not in ["", None] else None,
             "description": row["description"],
             "score": float(sims[i]),
-            "image": row["image"]
+            "image": row["image"],
+            "recommendationSource": "recommender",
+            "recommendationStrategy": "similar_books_tfidf"
         })
 
         if len(results) >= k:
@@ -197,12 +201,13 @@ def recommendations(user_id: str, k: int = 8):
         ]
 
         if idxs:
-            user_vec = mat[idxs].mean(axis=0)
+            user_vec = np.asarray(mat[idxs].mean(axis=0))
             sims = linear_kernel(user_vec, mat).flatten()
+            sims[idxs] = -1
             top_idx = sims.argsort()[::-1][:k]
 
             return [{
-                "_id": books_df.iloc[i]["id"],
+                "id": books_df.iloc[i]["id"],
                 "title": books_df.iloc[i]["title"],
                 "author": books_df.iloc[i]["author"],
                 "genre": books_df.iloc[i]["genre"],
@@ -210,7 +215,9 @@ def recommendations(user_id: str, k: int = 8):
                           if books_df.iloc[i]["rating"] not in ["", None] else None,
                 "description": books_df.iloc[i]["description"],
                 "score": float(sims[i]),
-                "image": books_df.iloc[i]["image"]
+                "image": books_df.iloc[i]["image"],
+                "recommendationSource": "recommender",
+                "recommendationStrategy": "user_interactions_tfidf"
             } for i in top_idx]
 
     # -----------------------
@@ -221,7 +228,7 @@ def recommendations(user_id: str, k: int = 8):
     top_idx = magnitudes.argsort()[::-1][:k]
 
     return [{
-        "_id": books_df.iloc[i]["id"],
+        "id": books_df.iloc[i]["id"],
         "title": books_df.iloc[i]["title"],
         "author": books_df.iloc[i]["author"],
         "genre": books_df.iloc[i]["genre"],
@@ -229,5 +236,7 @@ def recommendations(user_id: str, k: int = 8):
                   if books_df.iloc[i]["rating"] not in ["", None] else None,
         "description": books_df.iloc[i]["description"],
         "score": float(magnitudes[i]),
-        "image": books_df.iloc[i]["image"]
+        "image": books_df.iloc[i]["image"],
+        "recommendationSource": "fallback",
+        "recommendationStrategy": "popular_tfidf_magnitude"
     } for i in top_idx]

@@ -50,6 +50,20 @@ function CommentTableItem({comment, fetchComments}) {
             <b className='font-medium text-gray-600'>Name</b> : {comment.name}
             <br/>
             <b className='font-medium text-gray-600'>Comment</b> : {comment.content}
+            {comment.sentiment && (
+                <>
+                    <br/>
+                    <b className='font-medium text-gray-600'>Sentiment</b> : {comment.sentiment.label} ({comment.sentiment.score})
+                    {comment.sentiment.source && (
+                        <span className='text-xs text-gray-500'> - {comment.sentiment.source}</span>
+                    )}
+                    {comment.sentiment.probabilities && (
+                        <div className='text-xs text-gray-500'>
+                            pos {comment.sentiment.probabilities.positive?.toFixed(2)} / neu {comment.sentiment.probabilities.neutral?.toFixed(2)} / neg {comment.sentiment.probabilities.negative?.toFixed(2)}
+                        </div>
+                    )}
+                </>
+            )}
         </td>
         <td className='px-6 py-4 max-sm:hidden'>
             {BlogDate.toLocaleDateString()}

@@ -8,6 +8,7 @@ from pathlib import Path
 import requests
 import os
 import time
+import re
 
 # ================== LOAD ENV (BULLETPROOF) ==================
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
@@ -41,10 +42,8 @@ comments_col = db["comments"]
 print("✅ Connected to MongoDB")
 
 # ================== HUGGING FACE CONFIG ==================
-HF_URL = (
-    "https://router.huggingface.co/hf-inference/models/"
-    "distilbert-base-uncased-finetuned-sst-2-english"
-)
+HF_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+HF_URL = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}"
 
 HEADERS = {
     "Authorization": f"Bearer {HF_TOKEN}",
@@ -60,6 +59,7 @@ def hf_sentiment(text: str):
                 headers=HEADERS,
                 json={
                     "inputs": text,
+                    "parameters": {"top_k": 3},
                     "options": {"wait_for_model": True}
                 },
                 timeout=60,  # allow cold start
@@ -74,13 +74,14 @@ def hf_sentiment(text: str):
 
             data = resp.json()
 
-            # Expected: [[{label, score}, ...]]
+            # HF can return either [[{label, score}, ...]] or [{label, score}, ...].
             if (
                 isinstance(data, list)
-                and isinstance(data[0], list)
-                and len(data[0]) > 0
+                and len(data) > 0
             ):
-                return data[0][0]
+                predictions = data[0] if isinstance(data[0], list) else data
+                if predictions and isinstance(predictions[0], dict):
+                    return predictions
 
         except Exception as e:
             print("HF exception:", e)
@@ -93,7 +94,7 @@ def fallback_sentiment(text: str):
     positive = {"good", "great", "excellent", "amazing", "love", "nice"}
     negative = {"bad", "worst", "boring", "hate", "poor", "terrible"}
 
-    words = set(text.lower().split())
+    words = set(re.findall(r"[a-z']+", text.lower()))
     score = len(words & positive) - len(words & negative)
 
     if score > 0:
@@ -103,9 +104,37 @@ def fallback_sentiment(text: str):
     return 0.0, "neutral"
 
 
-def normalize_sentiment(label: str, score: float):
-    signed = score if label == "POSITIVE" else -score
-    return round(signed, 3), ("positive" if signed > 0 else "negative")
+def normalize_label(label: str):
+    normalized = label.upper()
+    label_map = {
+        "LABEL_0": "negative",
+        "LABEL_1": "neutral",
+        "LABEL_2": "positive",
+        "NEGATIVE": "negative",
+        "NEUTRAL": "neutral",
+        "POSITIVE": "positive",
+    }
+    return label_map.get(normalized, normalized.lower())
+
+
+def normalize_sentiment(predictions):
+    scores = {"positive": 0.0, "neutral": 0.0, "negative": 0.0}
+
+    for item in predictions:
+        label = normalize_label(item.get("label", ""))
+        if label in scores:
+            scores[label] = float(item.get("score", 0))
+
+    signed = scores["positive"] - scores["negative"]
+
+    if signed > 0.2:
+        label = "positive"
+    elif signed < -0.2:
+        label = "negative"
+    else:
+        label = "neutral"
+
+    return round(signed, 3), label, scores
 
 
 # ================== SCHEMAS ==================
@@ -128,19 +157,20 @@ def analyze_comment(payload: CommentRequest):
     result = hf_sentiment(text)
 
     if result:
-        score, label = normalize_sentiment(
-            result["label"], result["score"]
-        )
+        score, label, probabilities = normalize_sentiment(result)
         source = "huggingface"
     else:
         score, label = fallback_sentiment(text)
+        probabilities = None
         source = "fallback"
 
     return {
         "sentiment": {
             "score": score,
             "label": label,
-            "source": source
+            "source": source,
+            "model": HF_MODEL if source == "huggingface" else "keyword_fallback",
+            "probabilities": probabilities
         }
     }
 
@@ -163,17 +193,24 @@ def analyze_and_store(comment_id: str):
     result = hf_sentiment(text)
 
     if result:
-        score, label = normalize_sentiment(
-            result["label"], result["score"]
-        )
+        score, label, probabilities = normalize_sentiment(result)
         source = "huggingface"
     else:
         score, label = fallback_sentiment(text)
+        probabilities = None
         source = "fallback"
 
     comments_col.update_one(
         {"_id": cid},
-        {"$set": {"sentiment": {"score": score, "label": label}}}
+        {"$set": {
+            "sentiment": {
+                "score": score,
+                "label": label,
+                "source": source,
+                "model": HF_MODEL if source == "huggingface" else "keyword_fallback",
+                "probabilities": probabilities
+            }
+        }}
     )
 
     return {
@@ -181,7 +218,9 @@ def analyze_and_store(comment_id: str):
         "sentiment": {
             "score": score,
             "label": label,
-            "source": source
+            "source": source,
+            "model": HF_MODEL if source == "huggingface" else "keyword_fallback",
+            "probabilities": probabilities
         }
     }
 

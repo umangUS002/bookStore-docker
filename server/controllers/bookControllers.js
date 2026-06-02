@@ -6,6 +6,7 @@ import main from "../configs/gemini.js";
 import Subscriber from "../models/Subscriber.js";
 import { sendNewBookEmail } from "../utils/sendEmail.js";
 import redisClient from "../configs/redis.js";
+import axios from "axios";
 import { log } from "console";
 
 export const addBook = async (req, res) => {
@@ -140,8 +141,32 @@ export const togglePublish = async (req, res) => {
 export const addComment = async (req, res) => {
     try {
         const { book, name, content } = req.body;
-        await Comment.create({ book, name, content });
-        res.json({ success: true, message: "Comment added for review" })
+        const commentData = { book, name, content };
+
+        if (process.env.SENTIMENT_URL) {
+            try {
+                const resp = await axios.post(
+                    `${process.env.SENTIMENT_URL}/analyze/comment`,
+                    { text: content }
+                );
+
+                if (resp.data?.sentiment) {
+                    commentData.sentiment = resp.data.sentiment;
+                }
+            } catch (err) {
+                console.warn("sentiment service failed:", err.message);
+            }
+        }
+
+        const comment = await Comment.create(commentData);
+        res.json({
+            success: true,
+            message: "Comment added for review",
+            sentiment: comment.sentiment
+        })
+
+        await redisClient.del("admin:comments:all");
+        await redisClient.del("admin:dashboard");
     } catch (error) {
         res.json({ success: false, message: error.message })
     }

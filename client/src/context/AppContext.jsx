@@ -126,7 +126,10 @@ export const AppProvider = ({ children }) => {
   // --- RECOMMENDATIONS ---
   const getRecommendations = async () => {
     try {
-      const { data } = await axios.get("/api/recommendations");
+      const token = await getToken();
+      const { data } = await axios.get("/api/recommendations", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       setRecommendations(Array.isArray(data) ? data : []);
       return data;
     } catch (err) {

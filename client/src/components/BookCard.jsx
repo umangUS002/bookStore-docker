@@ -4,6 +4,8 @@ import StarRating from './StarRating'
 import WishlistButton from './WishListButton'
 
 function BookCard({ blog }) {
+  const navigate = useNavigate()
+
   if (!blog) return null
 
   // ✅ normalize ID (CRITICAL)
@@ -20,10 +22,10 @@ function BookCard({ blog }) {
     genre,
     image,
     author,
-    rating
+    rating,
+    recommendationSource,
+    recommendationStrategy
   } = blog
-
-  const navigate = useNavigate()
 
   return (
     <div
@@ -63,6 +65,13 @@ function BookCard({ blog }) {
             <StarRating rating={rating} />
           )}
         </div>
+
+        {recommendationSource && (
+          <div className='mt-3 text-[11px] text-gray-500'>
+            {recommendationSource}
+            {recommendationStrategy ? ` - ${recommendationStrategy}` : ''}
+          </div>
+        )}
       </div>
     </div>
   )

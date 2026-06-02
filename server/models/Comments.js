@@ -5,7 +5,17 @@ const commentSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     name: { type: String, required: true },
     content: { type: String, required: true },
-    sentiment: { score: Number, label: String },
+    sentiment: {
+        score: Number,
+        label: String,
+        source: String,
+        model: String,
+        probabilities: {
+            positive: Number,
+            neutral: Number,
+            negative: Number,
+        },
+    },
     moderated: { type: Boolean, default: false },
     isApproved: { type: Boolean, default: false },
 }, { timestamps: true });

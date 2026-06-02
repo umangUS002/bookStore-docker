@@ -10,10 +10,12 @@ export async function recomputeBookRating(bookId) {
   });
 
   if (!comments.length) {
-    await Book.findByIdAndUpdate(bookId, {
-      rating: null
-    });
-    return;
+    const book = await Book.findByIdAndUpdate(
+      bookId,
+      { rating: null },
+      { new: true }
+    );
+    return book?.rating ?? null;
   }
 
   const scores = comments.map(c => c.sentiment.score);
@@ -23,8 +25,12 @@ export async function recomputeBookRating(bookId) {
     (((avgScore + 1) / 2) * 4 + 1).toFixed(1)
   );
 
-  await Book.findByIdAndUpdate(bookId, {
-    rating: stars
-  });
+  const book = await Book.findByIdAndUpdate(
+    bookId,
+    { rating: stars },
+    { new: true }
+  );
+
+  return book?.rating ?? stars;
 }
 

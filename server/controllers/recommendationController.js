@@ -7,7 +7,7 @@ import Book from "../models/book.js";
  */
 export async function getRecommendationsForUser(req, res) {
   try {
-    const userId = req.auth();
+    const { userId } = req.auth();
     if (process.env.REC_URL) {
       try {
         const resp = await axios.get(`${process.env.REC_URL}/recommendations/${userId}`);
@@ -19,7 +19,11 @@ export async function getRecommendationsForUser(req, res) {
 
     // fallback: return latest/popular books from DB
     const fallback = await Book.find().sort({ createdAt: -1 }).limit(12);
-    return res.json(fallback);
+    return res.json(fallback.map((book) => ({
+      ...book.toObject(),
+      recommendationSource: "node_fallback",
+      recommendationStrategy: "latest_books_mongodb"
+    })));
   } catch (err) {
     console.error("getRecommendationsForUser err:", err);
     return res.status(500).json({ message: "Server error" });
@@ -46,8 +50,12 @@ export async function getSimilarBooks(req, res) {
     const book = await Book.findById(bookId);
     if (!book) return res.status(404).json({ message: "Book not found" });
 
-    const similar = await Book.find({ _id: { $ne: book._id }, genres: { $in: book.genres || [] } }).limit(10);
-    return res.json(similar);
+    const similar = await Book.find({ _id: { $ne: book._id }, genre: book.genre }).limit(10);
+    return res.json(similar.map((item) => ({
+      ...item.toObject(),
+      recommendationSource: "node_fallback",
+      recommendationStrategy: "same_genre_mongodb"
+    })));
   } catch (err) {
     console.error("getSimilarBooks err:", err);
     return res.status(500).json({ message: "Server error" });

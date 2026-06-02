@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://book-cart-backend-delta.vercel.app/api/:path*"
+      "destination": "https://bookstore-docker-2.onrender.com/api/:path*"
     },
     {
-      "source": "/(.*)",
-      "destination": "/"
+      "source": "/((?!api|assets|favicon.ico|_vercel).*)",
+      "destination": "/index.html"
     }
   ]
 }

@@ -15,6 +15,13 @@ function DashBoard() {
     recentBooks: []
   });
 
+  const [healthData, setHealthData] = useState({
+    redis: 'checking...',
+    recommender: 'checking...',
+    sentiment: 'checking...',
+    mongo: 'checking...'
+  });
+
   const fetchDashboard = async() => {
     try {
       const {data} = await axios.get('/api/admin/dashboard');
@@ -24,8 +31,20 @@ function DashBoard() {
     }
   }
 
+  const fetchHealth = async() => {
+    try {
+      const {data} = await axios.get('/api/admin/health');
+      if (data.success) {
+        setHealthData(data.health);
+      }
+    } catch (error) {
+      console.error("Health check error:", error.message);
+    }
+  }
+
   useEffect(()=>{
     fetchDashboard();
+    fetchHealth();
   },[])
 
   return (
@@ -53,6 +72,32 @@ function DashBoard() {
             <div>
               <p className='text-xl font-semibold text-gray-600'>{dashboardData.drafts}</p>
               <p className='text-gray-400 font-light'>Drafts</p>
+            </div>
+          </div>
+
+          <div className='bg-white p-4 min-w-72 rounded shadow hover:scale-105 transition-all'>
+            <p className='font-semibold text-gray-700 mb-2 border-b pb-1 text-sm'>Service Health Status</p>
+            <div className='grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs'>
+              <div className='flex items-center gap-1.5'>
+                <span className={`inline-block w-2 h-2 rounded-full ${healthData.redis === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className='text-gray-500 font-light'>Redis:</span>
+                <span className={`font-semibold capitalize ${healthData.redis === 'connected' ? 'text-green-600' : 'text-red-600'}`}>{healthData.redis}</span>
+              </div>
+              <div className='flex items-center gap-1.5'>
+                <span className={`inline-block w-2 h-2 rounded-full ${healthData.recommender === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className='text-gray-500 font-light'>Recommender:</span>
+                <span className={`font-semibold capitalize ${healthData.recommender === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>{healthData.recommender}</span>
+              </div>
+              <div className='flex items-center gap-1.5'>
+                <span className={`inline-block w-2 h-2 rounded-full ${healthData.sentiment === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className='text-gray-500 font-light'>Sentiment:</span>
+                <span className={`font-semibold capitalize ${healthData.sentiment === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>{healthData.sentiment}</span>
+              </div>
+              <div className='flex items-center gap-1.5'>
+                <span className={`inline-block w-2 h-2 rounded-full ${healthData.mongo === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className='text-gray-500 font-light'>MongoDB:</span>
+                <span className={`font-semibold capitalize ${healthData.mongo === 'connected' ? 'text-green-600' : 'text-red-600'}`}>{healthData.mongo}</span>
+              </div>
             </div>
           </div>
       </div>

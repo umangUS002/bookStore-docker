@@ -1,5 +1,5 @@
 import express from "express";
-import { addBook, addComment, deleteBookById, generateContent, getAllBooks, getBookById, getBookComment, getSimilarBooks, togglePublish } from "../controllers/bookControllers.js";
+import { addBook, addComment, deleteBookById, generateContent, getAllBooks, getBookById, getBookComment, getSimilarBooks, togglePublish, searchBooks } from "../controllers/bookControllers.js";
 import upload from "../middleware/multer.js";
 import auth from "../middleware/auth.js";
 import Book from "../models/book.js";
@@ -8,6 +8,7 @@ const bookRouter = express.Router();
 
 bookRouter.post("/add", upload.single('image'), auth, addBook);
 bookRouter.get("/all", getAllBooks);
+bookRouter.get("/search", searchBooks);
 bookRouter.post("/delete", auth, deleteBookById);
 bookRouter.post("/toggle-publish", togglePublish);
 bookRouter.post("/add-comment", addComment);

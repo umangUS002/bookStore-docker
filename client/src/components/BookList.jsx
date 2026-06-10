@@ -12,15 +12,8 @@ function BookList() {
     const {books, input} = useAppContext();
     
     const filteredBooks = () => {
-      if(input === ''){
-        return books;
-      }
-      return books.filter((book) => book.title.toLowerCase().includes(input.toLowerCase()) || book.author.toLowerCase().includes(input.toLowerCase()))
+      return books;
     }
-
-    useEffect(()=>{
-      filteredBooks();
-    },[])
 
   return (
     <div>

@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
 function Header() {
-  const { setInput, input, books } = useAppContext();
+  const { setInput, input, books, searchBooks } = useAppContext();
   const inputRef = useRef();
   const navigate = useNavigate();
 
@@ -36,19 +36,23 @@ function Header() {
 
   const onSubmitHandler = (e) => {
     e.preventDefault();
-    setInput(inputRef.current.value);
+    const val = inputRef.current.value;
+    setInput(val);
+    searchBooks(val);
     setShowSuggestions(false);
   };
 
   const onClear = () => {
     setInput('');
     inputRef.current.value = '';
+    searchBooks('');
     setShowSuggestions(false);
   };
 
   const handleSelect = (text, id) => {
     setInput(text);
     inputRef.current.value = text;
+    searchBooks(text);
     setShowSuggestions(false);
   };
 

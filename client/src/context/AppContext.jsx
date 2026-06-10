@@ -44,6 +44,16 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const searchBooks = async (query) => {
+    try {
+      const { data } = await axios.get(`/api/book/search?q=${encodeURIComponent(query)}`);
+      if (data?.success) setBooks(data.books);
+      else toast.error(data?.message || "Failed to search books");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message);
+    }
+  };
+
   // try recommendation service endpoint first, otherwise fall back to your older path
   const fetchSimilarBooks = async (bookId) => {
     try {
@@ -188,6 +198,7 @@ export const AppProvider = ({ children }) => {
     books,
     setBooks,
     fetchBooks,
+    searchBooks,
     similarBooks,
     setSimilarBooks,
     fetchSimilarBooks,

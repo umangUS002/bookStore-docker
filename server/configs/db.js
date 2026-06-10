@@ -5,7 +5,9 @@ const connectDB = async() => {
         mongoose.connection.on('connected', () => 
             console.log("Database Connected")
         )
-        await mongoose.connect(`${process.env.MONGODB_URI}/BookCart`)
+        await mongoose.connect(process.env.MONGODB_URI, {
+            dbName: process.env.DB_NAME || "test"
+        })
     } catch (error) {
         console.log(error.message);
     }

@@ -46,7 +46,13 @@ function BookTableItem({book, fetchBookss, index}) {
   return (
     <tr className='border-y border-gray-300'>
         <th className='px-2 py-4 text-left px-3 md:px-6'>{ index }</th>
-        <td className='px-2 py-4'>{ title }</td>
+        <td className='px-2 py-4'>
+            <div className='font-semibold text-gray-800'>{ title }</div>
+            <div className='text-xs text-gray-500 mt-1 flex flex-col gap-0.5'>
+                <span>Rating: {book.rating !== null && book.rating !== undefined ? book.rating : 'N/A'}</span>
+                <span>Based on {book.approvedCommentsCount || 0} approved comments</span>
+            </div>
+        </td>
         <td className='px-2 py-4 max-sm:hidden'>
             <p className={`${book.isPublished ? "text-green-600" : "text-orange-700"}`}>{book.isPublished ? 'Listed' : 'Not Listed'}</p>
         </td>

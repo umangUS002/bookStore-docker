@@ -1,5 +1,5 @@
 import express from "express";
-import { adminLogin, approveCommentById, deleteCommentById, getAllBookAdmin, getAllComments, getDashBoard } from "../controllers/adminControllers.js";
+import { adminLogin, approveCommentById, deleteCommentById, getAllBookAdmin, getAllComments, getDashBoard, getServiceHealth } from "../controllers/adminControllers.js";
 import auth from "../middleware/auth.js"
 
 const adminRouter = express.Router();
@@ -10,5 +10,6 @@ adminRouter.get("/books", getAllBookAdmin);
 adminRouter.post("/delete-comment", auth, deleteCommentById);
 adminRouter.post("/approve-comment", auth, approveCommentById);
 adminRouter.get("/dashboard", auth, getDashBoard);
+adminRouter.get("/health", auth, getServiceHealth);
 
 export default adminRouter;

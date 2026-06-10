@@ -6,3 +6,5 @@ numpy
 joblib
 pymongo[srv]
 dnspython
+spacy
+rapidfuzz

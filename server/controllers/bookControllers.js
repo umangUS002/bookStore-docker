@@ -8,6 +8,8 @@ import { sendNewBookEmail } from "../utils/sendEmail.js";
 import redisClient from "../configs/redis.js";
 import axios from "axios";
 import { log } from "console";
+import Interaction from "../models/Interaction.js";
+import esClient, { indexBook, deleteBookFromIndex } from "../configs/elasticsearch.js";
 
 export const addBook = async (req, res) => {
     try {
@@ -40,7 +42,10 @@ export const addBook = async (req, res) => {
 
         const image = optimizedImageUrl;
 
-        const bookC = await Book.create({ image, title, author, description, genre, publishedDate, isbn, publisher, pages, language, rating, tags, isPublished })
+        const bookC = await Book.create({ image, title, author, description, genre, publishedDate, isbn, publisher, pages, language, rating, manualRating: rating, tags, isPublished })
+
+        // Sync to Elasticsearch
+        await indexBook(bookC);
 
         // Fetch all subscribers
         const subscribers = await Subscriber.find({});
@@ -96,8 +101,23 @@ export const getBookById = async (req, res) => {
         const { bookId } = req.params;
         const book = await Book.findById(bookId)
         if (!book) {
-            res.json({ success: false, message: "Book not found" });
+            return res.json({ success: false, message: "Book not found" });
         }
+
+        // Log view interaction for recommender signals if user is logged in
+        try {
+            const { userId } = req.auth();
+            if (userId) {
+                await Interaction.create({
+                    userId,
+                    bookId: book._id,
+                    type: "view"
+                });
+            }
+        } catch (err) {
+            console.error("Failed to log view interaction:", err.message);
+        }
+
         res.json({ success: true, book })
     } catch (error) {
         res.json({ success: false, message: error.message })
@@ -108,6 +128,9 @@ export const deleteBookById = async (req, res) => {
     try {
         const { id } = req.body;
         await Book.findByIdAndDelete(id);
+
+        // Delete from Elasticsearch
+        await deleteBookFromIndex(id);
 
         // Delete all comments associated with the book
         await Comment.deleteMany({ book: id });
@@ -142,6 +165,15 @@ export const addComment = async (req, res) => {
     try {
         const { book, name, content } = req.body;
         const commentData = { book, name, content };
+
+        try {
+            const { userId } = req.auth();
+            if (userId) {
+                commentData.userId = userId;
+            }
+        } catch (err) {
+            console.error("Failed to extract userId for comment:", err.message);
+        }
 
         if (process.env.SENTIMENT_URL) {
             try {
@@ -232,6 +264,101 @@ export const getSimilarBooks = async (req, res) => {
         }).limit(5); // optional limit
 
         res.json({ success: true, similarBooks });
+
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+export const searchBooks = async (req, res) => {
+    try {
+        const { q } = req.query;
+
+        if (!q || !q.trim()) {
+            // If query is empty, return all published books (default behavior)
+            const books = await Book.find({ isPublished: true }).sort({ createdAt: -1 });
+            return res.json({ success: true, books });
+        }
+
+        const queryStr = q.trim();
+
+        // 1. Query Elasticsearch (exact + synonyms + fuzziness keyword match)
+        let esBooks = [];
+        try {
+            const esResult = await esClient.search({
+                index: "books",
+                body: {
+                    query: {
+                        multi_match: {
+                            query: queryStr,
+                            fields: ["title^3", "author^2", "description", "tags^2"],
+                            fuzziness: "AUTO"
+                        }
+                    }
+                }
+            });
+            if (esResult.hits && esResult.hits.hits) {
+                esBooks = esResult.hits.hits.map(hit => ({
+                    id: hit._source.id,
+                    score: hit._score
+                }));
+            }
+        } catch (err) {
+            console.error("Elasticsearch search failed:", err.message);
+        }
+
+        // 2. Query Python Service (SpaCy Lemmatization, regex, and RapidFuzz typo ratio)
+        let nlpBooks = [];
+        if (process.env.REC_URL) {
+            try {
+                const resp = await axios.post(`${process.env.REC_URL}/search/nlp`, { query: queryStr }, { timeout: 3000 });
+                if (Array.isArray(resp.data)) {
+                    nlpBooks = resp.data;
+                }
+            } catch (err) {
+                console.error("NLP search service failed:", err.message);
+            }
+        }
+
+        // 3. Hybrid Ranking Merger
+        const scoreMap = {};
+
+        // Add Elasticsearch scores (weighted)
+        for (const item of esBooks) {
+            scoreMap[item.id] = (scoreMap[item.id] || 0) + item.score * 1.5;
+        }
+
+        // Add NLP & Fuzzy scores from Python service
+        for (const item of nlpBooks) {
+            // Combine SpaCy TF-IDF score with RapidFuzz ratio score (max 100, normalized to 0..1)
+            const combinedNlp = (item.score * 1.0) + (item.fuzzy_score / 100.0) * 2.5;
+            scoreMap[item.id] = (scoreMap[item.id] || 0) + combinedNlp;
+        }
+
+        // Sort by combined score descending
+        const sortedIds = Object.keys(scoreMap).sort((a, b) => scoreMap[b] - scoreMap[a]);
+
+        if (sortedIds.length === 0) {
+            return res.json({ success: true, books: [] });
+        }
+
+        // Fetch matched books from MongoDB
+        const matchedBooks = await Book.find({
+            _id: { $in: sortedIds },
+            isPublished: true
+        });
+
+        // Maintain the sorted order from the hybrid scorer
+        const booksMap = matchedBooks.reduce((map, b) => {
+            map[b._id.toString()] = b;
+            return map;
+        }, {});
+
+        const sortedBooks = sortedIds
+            .map(id => booksMap[id])
+            .filter(b => b !== undefined);
+
+        res.json({ success: true, books: sortedBooks });
 
     } catch (error) {
         res.json({ success: false, message: error.message });

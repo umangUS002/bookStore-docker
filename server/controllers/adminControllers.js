@@ -4,6 +4,9 @@ import Comment from "../models/Comments.js";
 import { recomputeBookRating } from "../utils/recomputeBookRating.js";
 import axios from "axios";
 import redisClient from "../configs/redis.js";
+import mongoose from "mongoose";
+import Interaction from "../models/Interaction.js";
+import esClient from "../configs/elasticsearch.js";
 
 export const adminLogin = async(req, res) => {
     try {
@@ -31,15 +34,26 @@ export const getAllBookAdmin = async(req,res) => {
 
         const books = await Book.find({}).sort({createdAt: -1});
 
+        // Attach approvedCommentsCount to each book object
+        const booksWithCommentCount = await Promise.all(books.map(async (book) => {
+            const approvedCommentsCount = await Comment.countDocuments({
+                book: book._id,
+                isApproved: true
+            });
+            const bookObj = book.toObject();
+            bookObj.approvedCommentsCount = approvedCommentsCount;
+            return bookObj;
+        }));
+
         await redisClient.setEx(
             CACHE_KEY,
             300, // 5 min
-            JSON.stringify({ success: true, books })
+            JSON.stringify({ success: true, books: booksWithCommentCount })
         );
 
         console.log("Admin books served from MongoDB");
 
-        res.json({success: true, books});
+        res.json({success: true, books: booksWithCommentCount});
     
     } catch (error) {
         res.json({success: false, message: error.message});
@@ -82,12 +96,24 @@ export const getDashBoard = async(req,res) => {
         }
 
         const recentBooks = await Book.find({}).sort({ createdAt: -1 }).limit(5);
+        
+        // Attach approvedCommentsCount to each recent book object
+        const recentBooksWithCommentCount = await Promise.all(recentBooks.map(async (book) => {
+            const approvedCommentsCount = await Comment.countDocuments({
+                book: book._id,
+                isApproved: true
+            });
+            const bookObj = book.toObject();
+            bookObj.approvedCommentsCount = approvedCommentsCount;
+            return bookObj;
+        }));
+
         const books = await Book.countDocuments();
         const comments = await Comment.countDocuments();
         const drafts = await Book.countDocuments({isPublished: false})
 
         const dashboardData = {
-            recentBooks,
+            recentBooks: recentBooksWithCommentCount,
             books,
             comments,
             drafts
@@ -111,8 +137,17 @@ export const deleteCommentById = async(req, res) => {
     try {
         const {id} = req.body;
         const deletedComment = await Comment.findByIdAndDelete(id);
-        if (deletedComment?.book) {
-            await recomputeBookRating(deletedComment.book);
+        if (deletedComment) {
+            if (deletedComment.book) {
+                await recomputeBookRating(deletedComment.book);
+            }
+            if (deletedComment.userId) {
+                await Interaction.deleteMany({
+                    userId: deletedComment.userId,
+                    bookId: deletedComment.book,
+                    type: { $in: ["positive_comment", "negative_comment"] }
+                });
+            }
         }
         await redisClient.del("admin:comments:all");
         await redisClient.del("admin:dashboard");
@@ -148,6 +183,29 @@ export const approveCommentById = async (req, res) => {
     comment.isApproved = true;
     await comment.save();
 
+    // Log interaction for recommender signals if user is logged in
+    if (comment.userId) {
+      const sentimentLabel = comment.sentiment?.label; // "positive", "neutral", "negative"
+      let interactionType = null;
+      if (sentimentLabel === "positive") {
+        interactionType = "positive_comment";
+      } else if (sentimentLabel === "negative") {
+        interactionType = "negative_comment";
+      }
+
+      if (interactionType) {
+        try {
+          await Interaction.findOneAndUpdate(
+            { userId: comment.userId, bookId: comment.book, type: interactionType },
+            { userId: comment.userId, bookId: comment.book, type: interactionType },
+            { upsert: true }
+          );
+        } catch (err) {
+          console.error("Failed to log comment interaction:", err.message);
+        }
+      }
+    }
+
     // 🔥 Update rating
     const rating = await recomputeBookRating(comment.book);
 
@@ -168,5 +226,76 @@ export const approveCommentById = async (req, res) => {
     console.error("approveCommentById:", error);
     res.status(500).json({ success: false, message: error.message });
   }
+};
+
+export const getServiceHealth = async (req, res) => {
+    try {
+        // 1. Redis check
+        let redisStatus = "disconnected";
+        try {
+            if (redisClient && redisClient.isOpen) {
+                await redisClient.ping();
+                redisStatus = "connected";
+            }
+        } catch (err) {
+            console.error("Redis health check failed:", err.message);
+        }
+
+        // 2. MongoDB check
+        const mongoState = mongoose.connection.readyState;
+        const mongoStatus = mongoState === 1 ? "connected" : "disconnected";
+
+        // 3. Recommender check
+        let recommenderStatus = "unhealthy";
+        if (process.env.REC_URL) {
+            try {
+                const resp = await axios.get(`${process.env.REC_URL}/health`, { timeout: 2000 });
+                if (resp.status === 200) {
+                    recommenderStatus = "healthy";
+                }
+            } catch (err) {
+                console.error("Recommender health check failed:", err.message);
+            }
+        }
+
+        // 4. Sentiment check
+        let sentimentStatus = "unhealthy";
+        if (process.env.SENTIMENT_URL) {
+            try {
+                const resp = await axios.get(`${process.env.SENTIMENT_URL}/health`, { timeout: 2000 });
+                if (resp.status === 200) {
+                    sentimentStatus = "healthy";
+                }
+            } catch (err) {
+                console.error("Sentiment health check failed:", err.message);
+            }
+        }
+
+        // 5. Elasticsearch check
+        let elasticsearchStatus = "disconnected";
+        try {
+            if (esClient) {
+                const esHealth = await esClient.cluster.health({ timeout: "2s" });
+                if (esHealth && esHealth.status) {
+                    elasticsearchStatus = esHealth.status; // 'green', 'yellow', or 'red'
+                }
+            }
+        } catch (err) {
+            console.error("Elasticsearch health check failed:", err.message);
+        }
+
+        res.json({
+            success: true,
+            health: {
+                redis: redisStatus,
+                recommender: recommenderStatus,
+                sentiment: sentimentStatus,
+                mongo: mongoStatus,
+                elasticsearch: elasticsearchStatus
+            }
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
 };
 

@@ -36,7 +36,7 @@ app.add_middleware(
 
 # ================== DATABASE ==================
 client = MongoClient(MONGO_URI)
-db = client["test"]
+db = client[os.getenv("DB_NAME", "test")]
 comments_col = db["comments"]
 
 print("✅ Connected to MongoDB")

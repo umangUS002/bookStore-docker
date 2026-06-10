@@ -11,10 +11,12 @@ import clerkWebhooks from "./controllers/webhooks.js";
 import { clerkMiddleware } from '@clerk/express';
 import subscriberRouter from "./routes/subscriberRoutes.js";
 import "./configs/redis.js"
+import { initElasticsearch } from "./configs/elasticsearch.js";
 
 const app = express();
 
 await connectDB();
+await initElasticsearch();
 
 // Middlewares
 app.set("trust proxy", 1); // 🔥 REQUIRED even locally (important)

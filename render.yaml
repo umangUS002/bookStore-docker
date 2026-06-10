@@ -1,0 +1,84 @@
+services:
+  # 1. Redis Internal Private Service (Managed by Render)
+  - type: redis
+    name: bookstore-redis
+    ipAllowList: [] # Access restricted to services in the same Render account
+
+  # 2. Python Sentiment Analysis Private Service
+  - type: pserv
+    name: bookstore-sentiment
+    env: docker
+    dockerfilePath: sentiment-service/Dockerfile
+    dockerContext: sentiment-service
+    plan: free
+
+  # 3. Python Recommendation NLP Private Service
+  - type: pserv
+    name: bookstore-recommender
+    env: docker
+    dockerfilePath: recommender/Dockerfile
+    dockerContext: recommender
+    plan: starter # Starter or higher is recommended due to SpaCy's memory footprint
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: DB_NAME
+        value: test
+
+  # 4. Express.js Backend Server
+  - type: web
+    name: bookstore-server
+    env: docker
+    dockerfilePath: server/Dockerfile
+    dockerContext: server
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        fromRedis: bookstore-redis
+      - key: SENTIMENT_URL
+        fromService:
+          type: pserv
+          name: bookstore-sentiment
+      - key: REC_URL
+        fromService:
+          type: pserv
+          name: bookstore-recommender
+      - key: ELASTICSEARCH_URL
+        sync: false # Connect to Bonsai / Elastic Cloud instance
+      - key: JWT_SECRET
+        generateValue: true
+      - key: IMAGEKIT_PUBLIC_KEY
+        sync: false
+      - key: IMAGEKIT_PRIVATE_KEY
+        sync: false
+      - key: IMAGEKIT_URL_ENDPOINT
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+
+  # 5. React Frontend Client (Static Site for free hosting)
+  - type: web
+    name: bookstore-client
+    env: static
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    rootDirectory: client
+    envVars:
+      - key: VITE_BASE_URL
+        fromService:
+          type: web
+          name: bookstore-server

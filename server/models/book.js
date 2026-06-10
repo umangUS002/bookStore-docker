@@ -11,6 +11,7 @@ const bookSchema = new mongoose.Schema({
     pages: {type: Number},
     image: {type: String, required: true},
     rating: {type: Number, min: 0, max: 5, default: null},
+    manualRating: {type: Number, min: 0, max: 5, default: null},
     tags: [String],
     publishedDate: {type: Date, required: true},
     isPublished: {type: Boolean, required: true},

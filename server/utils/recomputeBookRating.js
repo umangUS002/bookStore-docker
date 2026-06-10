@@ -9,28 +9,41 @@ export async function recomputeBookRating(bookId) {
     "sentiment.score": { $exists: true }
   });
 
-  if (!comments.length) {
-    const book = await Book.findByIdAndUpdate(
-      bookId,
-      { rating: null },
-      { new: true }
-    );
-    return book?.rating ?? null;
+  const book = await Book.findById(bookId);
+  if (!book) return null;
+
+  // Use manualRating if set, otherwise fallback to current rating (or null)
+  const manualRating = book.manualRating !== undefined && book.manualRating !== null
+    ? book.manualRating
+    : book.rating;
+
+  const N = comments.length;
+  let finalRating = null;
+
+  if (N === 0) {
+    // If no comments, the rating is exactly the manual rating
+    finalRating = manualRating;
+  } else {
+    // Convert sentiment score (-1 to 1) to star rating (1 to 5)
+    // star_rating = ((sentiment + 1) / 2) * 4 + 1
+    const commentsStarSum = comments.reduce((sum, c) => {
+      const score = c.sentiment.score;
+      const stars = ((score + 1) / 2) * 4 + 1;
+      return sum + stars;
+    }, 0);
+
+    if (manualRating !== null && manualRating !== undefined) {
+      const W_m = 5; // Weight of the manual rating
+      finalRating = (W_m * manualRating + commentsStarSum) / (W_m + N);
+    } else {
+      finalRating = commentsStarSum / N;
+    }
+
+    finalRating = Number(finalRating.toFixed(1));
   }
 
-  const scores = comments.map(c => c.sentiment.score);
-  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+  book.rating = finalRating;
+  await book.save();
 
-  const stars = Number(
-    (((avgScore + 1) / 2) * 4 + 1).toFixed(1)
-  );
-
-  const book = await Book.findByIdAndUpdate(
-    bookId,
-    { rating: stars },
-    { new: true }
-  );
-
-  return book?.rating ?? stars;
+  return finalRating;
 }
-

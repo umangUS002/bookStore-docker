@@ -2,10 +2,19 @@ import { Client } from "@elastic/elasticsearch";
 import Book from "../models/book.js";
 
 const ES_URL = process.env.ELASTICSEARCH_URL || "http://localhost:9200";
+const ES_API_KEY = process.env.ELASTICSEARCH_API_KEY;
 
-const esClient = new Client({
+const clientOptions = {
   node: ES_URL,
-});
+};
+
+if (ES_API_KEY) {
+  clientOptions.auth = {
+    apiKey: ES_API_KEY,
+  };
+}
+
+const esClient = new Client(clientOptions);
 
 const INDEX_NAME = "books";
 

@@ -40,6 +40,8 @@ services:
         value: http://bookstore-recommender:8002
       - key: ELASTICSEARCH_URL
         sync: false # Connect to Bonsai / Elastic Cloud instance
+      - key: ELASTICSEARCH_API_KEY
+        sync: false # Optional API Key for authentication
       - key: JWT_SECRET
         generateValue: true
       - key: IMAGEKIT_PUBLIC_KEY

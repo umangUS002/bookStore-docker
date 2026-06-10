@@ -1,14 +1,14 @@
 services:
-  # 1. Python Sentiment Analysis Private Service
-  - type: pserv
+  # 1. Python Sentiment Analysis Private Service (Deployed as Web Service for Free Tier)
+  - type: web
     name: bookstore-sentiment
     env: docker
     dockerfilePath: sentiment-service/Dockerfile
     dockerContext: sentiment-service
     plan: free
 
-  # 2. Python Recommendation NLP Private Service
-  - type: pserv
+  # 2. Python Recommendation NLP Private Service (Deployed as Web Service for Free Tier)
+  - type: web
     name: bookstore-recommender
     env: docker
     dockerfilePath: recommender/Dockerfile

@@ -1,6 +1,6 @@
 services:
   # 1. Redis Internal Private Service (Managed by Render)
-  - type: redis
+  - type: keyvalue
     name: bookstore-redis
     ipAllowList: [] # Access restricted to services in the same Render account
 
@@ -38,15 +38,14 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
-        fromRedis: bookstore-redis
+        fromService:
+          type: keyvalue
+          name: bookstore-redis
+          property: connectionString
       - key: SENTIMENT_URL
-        fromService:
-          type: pserv
-          name: bookstore-sentiment
+        value: http://bookstore-sentiment:8001
       - key: REC_URL
-        fromService:
-          type: pserv
-          name: bookstore-recommender
+        value: http://bookstore-recommender:8002
       - key: ELASTICSEARCH_URL
         sync: false # Connect to Bonsai / Elastic Cloud instance
       - key: JWT_SECRET
@@ -82,3 +81,4 @@ services:
         fromService:
           type: web
           name: bookstore-server
+          envVarKey: RENDER_EXTERNAL_URL

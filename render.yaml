@@ -1,10 +1,5 @@
 services:
-  # 1. Redis Internal Private Service (Managed by Render)
-  - type: keyvalue
-    name: bookstore-redis
-    ipAllowList: [] # Access restricted to services in the same Render account
-
-  # 2. Python Sentiment Analysis Private Service
+  # 1. Python Sentiment Analysis Private Service
   - type: pserv
     name: bookstore-sentiment
     env: docker
@@ -12,20 +7,20 @@ services:
     dockerContext: sentiment-service
     plan: free
 
-  # 3. Python Recommendation NLP Private Service
+  # 2. Python Recommendation NLP Private Service
   - type: pserv
     name: bookstore-recommender
     env: docker
     dockerfilePath: recommender/Dockerfile
     dockerContext: recommender
-    plan: starter # Starter or higher is recommended due to SpaCy's memory footprint
+    plan: free
     envVars:
       - key: MONGO_URI
         sync: false
       - key: DB_NAME
         value: test
 
-  # 4. Express.js Backend Server
+  # 3. Express.js Backend Server
   - type: web
     name: bookstore-server
     env: docker
@@ -38,10 +33,7 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: bookstore-redis
-          property: connectionString
+        sync: false # Connect to Upstash / external free Redis
       - key: SENTIMENT_URL
         value: http://bookstore-sentiment:8001
       - key: REC_URL
@@ -69,7 +61,7 @@ services:
       - key: EMAIL_PASS
         sync: false
 
-  # 5. React Frontend Client (Static Site for free hosting)
+  # 4. React Frontend Client (Static Site for free hosting)
   - type: web
     name: bookstore-client
     env: static

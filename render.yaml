@@ -71,12 +71,11 @@ services:
         sync: false
 
   # 5. React Frontend Client (Static Site for free hosting)
-  - type: web
+  - type: static
     name: bookstore-client
-    env: static
     buildCommand: npm install && npm run build
     publishPath: dist
-    rootDirectory: client
+    rootDir: client
     envVars:
       - key: VITE_BASE_URL
         fromService:

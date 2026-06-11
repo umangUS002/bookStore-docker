@@ -26,7 +26,12 @@ export const adminLogin = async(req, res) => {
 export const getAllBookAdmin = async(req,res) => {
     try {
         const CACHE_KEY = "admin:books:all";
-        const cachedBooks = await redisClient.get(CACHE_KEY);
+        let cachedBooks = null;
+        try {
+            cachedBooks = await redisClient.get(CACHE_KEY);
+        } catch (err) {
+            console.warn("Redis get error in getAllBookAdmin:", err.message);
+        }
         if(cachedBooks){
             console.log("Admin books served from Redis");
             return res.status(200).json(JSON.parse(cachedBooks));
@@ -45,11 +50,15 @@ export const getAllBookAdmin = async(req,res) => {
             return bookObj;
         }));
 
-        await redisClient.setEx(
-            CACHE_KEY,
-            300, // 5 min
-            JSON.stringify({ success: true, books: booksWithCommentCount })
-        );
+        try {
+            await redisClient.setEx(
+                CACHE_KEY,
+                300, // 5 min
+                JSON.stringify({ success: true, books: booksWithCommentCount })
+            );
+        } catch (err) {
+            console.warn("Redis setEx error in getAllBookAdmin:", err.message);
+        }
 
         console.log("Admin books served from MongoDB");
 
@@ -63,7 +72,12 @@ export const getAllBookAdmin = async(req,res) => {
 export const getAllComments = async(req,res) => {
     try {
         const CACHE_KEY = "admin:comments:all"
-        const cachedComments = await redisClient.get(CACHE_KEY);
+        let cachedComments = null;
+        try {
+            cachedComments = await redisClient.get(CACHE_KEY);
+        } catch (err) {
+            console.warn("Redis get error in getAllComments:", err.message);
+        }
         if(cachedComments){
             console.log("Admin comments served from Redis");
             return res.status(200).json(JSON.parse(cachedComments));
@@ -71,11 +85,15 @@ export const getAllComments = async(req,res) => {
 
         const comments = await Comment.find({}).populate("book").sort({createdAt: -1});
 
-        await redisClient.setEx(
-            CACHE_KEY,
-            300,
-            JSON.stringify({ success: true, comments })
-        );
+        try {
+            await redisClient.setEx(
+                CACHE_KEY,
+                300,
+                JSON.stringify({ success: true, comments })
+            );
+        } catch (err) {
+            console.warn("Redis setEx error in getAllComments:", err.message);
+        }
 
         console.log("Admin comments served from MongoDB");
 
@@ -89,7 +107,12 @@ export const getDashBoard = async(req,res) => {
     try {
         const CACHE_KEY = "admin:dashboard";
 
-        const cachedDashboard = await redisClient.get(CACHE_KEY);
+        let cachedDashboard = null;
+        try {
+            cachedDashboard = await redisClient.get(CACHE_KEY);
+        } catch (err) {
+            console.warn("Redis get error in getDashBoard:", err.message);
+        }
         if (cachedDashboard) {
             console.log("Dashboard served from Redis");
             return res.status(200).json(JSON.parse(cachedDashboard));
@@ -119,11 +142,15 @@ export const getDashBoard = async(req,res) => {
             drafts
         };
 
-        await redisClient.setEx(
-            CACHE_KEY,
-            120, // shorter TTL (dashboard changes often)
-            JSON.stringify({ success: true, dashboardData })
-        );
+        try {
+            await redisClient.setEx(
+                CACHE_KEY,
+                120, // shorter TTL (dashboard changes often)
+                JSON.stringify({ success: true, dashboardData })
+            );
+        } catch (err) {
+            console.warn("Redis setEx error in getDashBoard:", err.message);
+        }
 
         console.log("Dashboard served from MongoDB");
 
@@ -149,10 +176,14 @@ export const deleteCommentById = async(req, res) => {
                 });
             }
         }
-        await redisClient.del("admin:comments:all");
-        await redisClient.del("admin:dashboard");
-        await redisClient.del("admin:books:all");
-        await redisClient.del("books:all");
+        try {
+            await redisClient.del("admin:comments:all");
+            await redisClient.del("admin:dashboard");
+            await redisClient.del("admin:books:all");
+            await redisClient.del("books:all");
+        } catch (err) {
+            console.warn("Redis del error in deleteCommentById:", err.message);
+        }
 
         res.json({success: true, message: "Comment deleted successfully"})
 
@@ -209,10 +240,14 @@ export const approveCommentById = async (req, res) => {
     // 🔥 Update rating
     const rating = await recomputeBookRating(comment.book);
 
-    await redisClient.del("admin:comments:all");
-    await redisClient.del("admin:dashboard");
-    await redisClient.del("admin:books:all");
-    await redisClient.del("books:all");
+    try {
+      await redisClient.del("admin:comments:all");
+      await redisClient.del("admin:dashboard");
+      await redisClient.del("admin:books:all");
+      await redisClient.del("books:all");
+    } catch (err) {
+      console.warn("Redis del error in approveCommentById:", err.message);
+    }
 
     console.log(`Book ${comment.book} rating updated to ${rating}`);
 

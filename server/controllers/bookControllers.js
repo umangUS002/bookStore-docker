@@ -57,8 +57,12 @@ export const addBook = async (req, res) => {
 
         res.json({ success: true, message: "Book added successfully" })
 
-        await redisClient.del("books:all");
-        await redisClient.del("admin:books:all");
+        try {
+            await redisClient.del("books:all");
+            await redisClient.del("admin:books:all");
+        } catch (err) {
+            console.warn("Redis del error in addBook:", err.message);
+        }
 
     } catch (error) {
         res.json({ success: false, message: error.message })
@@ -69,7 +73,12 @@ export const getAllBooks = async (req, res) => {
     try {
         const CACHE_KEY = "books:all";
 
-        const cachedBooks = await redisClient.get(CACHE_KEY);
+        let cachedBooks = null;
+        try {
+            cachedBooks = await redisClient.get(CACHE_KEY);
+        } catch (err) {
+            console.warn("Redis get error in getAllBooks:", err.message);
+        }
         if(cachedBooks){
             console.log("Books served from Redis");
             return res.status(200).json(JSON.parse(cachedBooks));
@@ -82,11 +91,15 @@ export const getAllBooks = async (req, res) => {
             books
         };
 
-        await redisClient.setEx(
-            CACHE_KEY,
-            300,
-            JSON.stringify(response)
-        );
+        try {
+            await redisClient.setEx(
+                CACHE_KEY,
+                300,
+                JSON.stringify(response)
+            );
+        } catch (err) {
+            console.warn("Redis setEx error in getAllBooks:", err.message);
+        }
 
         console.log("Books served from MongoDB");
 
@@ -137,8 +150,12 @@ export const deleteBookById = async (req, res) => {
 
         res.json({ success: true, message: "Book deleted successfully" })
 
-        await redisClient.del("books:all");
-        await redisClient.del("admin:books:all");
+        try {
+            await redisClient.del("books:all");
+            await redisClient.del("admin:books:all");
+        } catch (err) {
+            console.warn("Redis del error in deleteBookById:", err.message);
+        }
 
     } catch (error) {
         res.json({ success: false, message: error.message })
@@ -153,8 +170,12 @@ export const togglePublish = async (req, res) => {
         await book.save();
         res.json({ success: true, message: "Book status updated" })
 
-        await redisClient.del("books:all");
-        await redisClient.del("admin:books:all");
+        try {
+            await redisClient.del("books:all");
+            await redisClient.del("admin:books:all");
+        } catch (err) {
+            console.warn("Redis del error in togglePublish:", err.message);
+        }
         
     } catch (error) {
         res.json({ success: false, message: error.message })
@@ -197,8 +218,12 @@ export const addComment = async (req, res) => {
             sentiment: comment.sentiment
         })
 
-        await redisClient.del("admin:comments:all");
-        await redisClient.del("admin:dashboard");
+        try {
+            await redisClient.del("admin:comments:all");
+            await redisClient.del("admin:dashboard");
+        } catch (err) {
+            console.warn("Redis del error in addComment:", err.message);
+        }
     } catch (error) {
         res.json({ success: false, message: error.message })
     }

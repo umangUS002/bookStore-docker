@@ -25,7 +25,8 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://book-cart-eosin.vercel.app",
-    "https://book-store-docker.vercel.app"
+    "https://book-store-docker.vercel.app",
+    "https://bookstore-client-x3lu.onrender.com"
   ],
   credentials: true
 }));

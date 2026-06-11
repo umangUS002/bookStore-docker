@@ -48,7 +48,7 @@ function DashBoard() {
     fetchHealth();
   },[])
 
-  const isEsHealthy = healthData.elasticsearch === 'green' || healthData.elasticsearch === 'yellow';
+  const isEsHealthy = healthData.elasticsearch === 'connected' || healthData.elasticsearch === 'green' || healthData.elasticsearch === 'yellow';
 
   return (
     <div className='flex-1 p-4 md:p-10 bg-blue-50/50 min-h-[calc(100vh-70px)]'>

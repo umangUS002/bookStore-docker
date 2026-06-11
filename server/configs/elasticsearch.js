@@ -25,8 +25,8 @@ export async function initElasticsearch() {
   for (let i = 1; i <= maxRetries; i++) {
     try {
       // 1. Check connection
-      const health = await esClient.cluster.health({});
-      console.log(`✅ Connected to Elasticsearch (status: ${health.status})`);
+      const info = await esClient.info();
+      console.log(`✅ Connected to Elasticsearch Serverless (version: ${info.version.number})`);
 
       // 2. Create index if not exists
       const indexExists = await esClient.indices.exists({ index: INDEX_NAME });

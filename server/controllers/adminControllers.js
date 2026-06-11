@@ -310,9 +310,9 @@ export const getServiceHealth = async (req, res) => {
         let elasticsearchStatus = "disconnected";
         try {
             if (esClient) {
-                const esHealth = await esClient.cluster.health({ timeout: "2s" });
-                if (esHealth && esHealth.status) {
-                    elasticsearchStatus = esHealth.status; // 'green', 'yellow', or 'red'
+                const esInfo = await esClient.info();
+                if (esInfo && esInfo.version) {
+                    elasticsearchStatus = "connected";
                 }
             }
         } catch (err) {

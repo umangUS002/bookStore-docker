@@ -310,23 +310,25 @@ export const searchBooks = async (req, res) => {
         // 1. Query Elasticsearch (exact + synonyms + fuzziness keyword match)
         let esBooks = [];
         try {
-            const esResult = await esClient.search({
-                index: "books",
-                body: {
-                    query: {
-                        multi_match: {
-                            query: queryStr,
-                            fields: ["title^3", "author^2", "description", "tags^2"],
-                            fuzziness: "AUTO"
+            if (process.env.ELASTICSEARCH_URL) {
+                const esResult = await esClient.search({
+                    index: "books",
+                    body: {
+                        query: {
+                            multi_match: {
+                                query: queryStr,
+                                fields: ["title^3", "author^2", "description", "tags^2"],
+                                fuzziness: "AUTO"
+                            }
                         }
                     }
+                });
+                if (esResult.hits && esResult.hits.hits) {
+                    esBooks = esResult.hits.hits.map(hit => ({
+                        id: hit._source.id,
+                        score: hit._score
+                    }));
                 }
-            });
-            if (esResult.hits && esResult.hits.hits) {
-                esBooks = esResult.hits.hits.map(hit => ({
-                    id: hit._source.id,
-                    score: hit._score
-                }));
             }
         } catch (err) {
             console.error("Elasticsearch search failed:", err.message);
@@ -363,27 +365,49 @@ export const searchBooks = async (req, res) => {
         // Sort by combined score descending
         const sortedIds = Object.keys(scoreMap).sort((a, b) => scoreMap[b] - scoreMap[a]);
 
-        if (sortedIds.length === 0) {
+        if (sortedIds.length > 0) {
+            // Fetch matched books from MongoDB
+            const matchedBooks = await Book.find({
+                _id: { $in: sortedIds },
+                isPublished: true
+            });
+
+            // Maintain the sorted order from the hybrid scorer
+            const booksMap = matchedBooks.reduce((map, b) => {
+                map[b._id.toString()] = b;
+                return map;
+            }, {});
+
+            const sortedBooks = sortedIds
+                .map(id => booksMap[id])
+                .filter(b => b !== undefined);
+
+            return res.json({ success: true, books: sortedBooks });
+        }
+
+        // Fallback: local MongoDB regex search if both external search providers returned nothing/failed
+        console.log("Falling back to local MongoDB search for:", queryStr);
+        const words = queryStr.split(/\s+/).filter(Boolean);
+        const orConditions = [];
+        
+        words.forEach(word => {
+            const regex = new RegExp(word, "i");
+            orConditions.push({ title: regex });
+            orConditions.push({ author: regex });
+            orConditions.push({ genre: regex });
+            orConditions.push({ tags: regex });
+        });
+
+        if (orConditions.length === 0) {
             return res.json({ success: true, books: [] });
         }
 
-        // Fetch matched books from MongoDB
-        const matchedBooks = await Book.find({
-            _id: { $in: sortedIds },
-            isPublished: true
+        const fallbackBooks = await Book.find({
+            isPublished: true,
+            $or: orConditions
         });
 
-        // Maintain the sorted order from the hybrid scorer
-        const booksMap = matchedBooks.reduce((map, b) => {
-            map[b._id.toString()] = b;
-            return map;
-        }, {});
-
-        const sortedBooks = sortedIds
-            .map(id => booksMap[id])
-            .filter(b => b !== undefined);
-
-        res.json({ success: true, books: sortedBooks });
+        res.json({ success: true, books: fallbackBooks });
 
     } catch (error) {
         res.json({ success: false, message: error.message });

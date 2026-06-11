@@ -19,7 +19,8 @@ function DashBoard() {
     redis: 'checking...',
     recommender: 'checking...',
     sentiment: 'checking...',
-    mongo: 'checking...'
+    mongo: 'checking...',
+    elasticsearch: 'checking...'
   });
 
   const fetchDashboard = async() => {
@@ -46,6 +47,8 @@ function DashBoard() {
     fetchDashboard();
     fetchHealth();
   },[])
+
+  const isEsHealthy = healthData.elasticsearch === 'green' || healthData.elasticsearch === 'yellow';
 
   return (
     <div className='flex-1 p-4 md:p-10 bg-blue-50/50 min-h-[calc(100vh-70px)]'>
@@ -75,7 +78,7 @@ function DashBoard() {
             </div>
           </div>
 
-          <div className='bg-white p-4 min-w-72 rounded shadow hover:scale-105 transition-all'>
+          <div className='bg-white p-4 min-w-80 rounded shadow hover:scale-105 transition-all'>
             <p className='font-semibold text-gray-700 mb-2 border-b pb-1 text-sm'>Service Health Status</p>
             <div className='grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs'>
               <div className='flex items-center gap-1.5'>
@@ -97,6 +100,11 @@ function DashBoard() {
                 <span className={`inline-block w-2 h-2 rounded-full ${healthData.mongo === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 <span className='text-gray-500 font-light'>MongoDB:</span>
                 <span className={`font-semibold capitalize ${healthData.mongo === 'connected' ? 'text-green-600' : 'text-red-600'}`}>{healthData.mongo}</span>
+              </div>
+              <div className='flex items-center gap-1.5 col-span-2 border-t pt-1 mt-1'>
+                <span className={`inline-block w-2 h-2 rounded-full ${isEsHealthy ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className='text-gray-500 font-light'>Elasticsearch:</span>
+                <span className={`font-semibold capitalize ${isEsHealthy ? 'text-green-600' : 'text-red-600'}`}>{healthData.elasticsearch}</span>
               </div>
             </div>
           </div>

@@ -35,9 +35,9 @@ services:
       - key: REDIS_URL
         sync: false # Connect to Upstash / external free Redis
       - key: SENTIMENT_URL
-        value: http://bookstore-sentiment:8001
+        value: https://bookstore-sentiment.onrender.com
       - key: REC_URL
-        value: http://bookstore-recommender:8002
+        value: https://bookstore-recommender.onrender.com
       - key: ELASTICSEARCH_URL
         sync: false # Connect to Bonsai / Elastic Cloud instance
       - key: ELASTICSEARCH_API_KEY
@@ -64,12 +64,15 @@ services:
         sync: false
 
   # 4. React Frontend Client (Static Site for free hosting)
-  - type: web
+  - type: static
     name: bookstore-client
-    env: static
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     rootDir: client
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_BASE_URL
         fromService:

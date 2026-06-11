@@ -53,11 +53,12 @@ function App() {
           <Route index element={<Wishlist />} />
           <Route path="recommended" element={<Recommend />} />
         </Route>
-
       </Routes>
-      <Analytics/>
+      {window.location.hostname.endsWith('vercel.app') && <Analytics />}
     </div>
   )
 }
+
+
 
 export default App
